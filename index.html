@@ -87,9 +87,122 @@
     <label>Warehouse:<input id="warehouse" value="GLENDALE" /></label>
 
     <div class="toast" id="toast">Scanned!</div>
-  </div>
+  
+    <label><button onclick="addEntry()">Add Entry</button></label>
+    <label><button onclick="downloadCSV()">Download CSV</button></label>
+    <label><button onclick="resetForm()">Reset Form</button></label>
 
-  <script>
+    <h2>Entry Log</h2>
+    <table border="1" width="100%" style="margin-top:1rem;" id="entryTable">
+      <thead>
+        <tr>
+          <th>#</th><th>SKU</th><th>Lot</th><th>Product ID Tag</th><th>Qty</th><th>2nd Lot</th><th>Location</th><th>Warehouse</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <textarea id="csvPreview" readonly placeholder="CSV preview will appear here..."></textarea>
+    </div>
+
+    <script>
+      let entries = [];
+
+      function addEntry() {
+        const row = {
+          sku: document.getElementById('sku').value,
+          lot: document.getElementById('lot').value,
+          productIdTag: document.getElementById('productIdTag').value,
+          quantity: document.getElementById('quantity').value,
+          secondLot: document.getElementById('secondLot').value,
+          location: document.getElementById('location').value,
+          warehouse: document.getElementById('warehouse').value,
+        };
+        entries.push(row);
+        updateCSVPreview();
+        renderEntryTable();
+        resetForm();
+        showToast('Entry added!');
+      }
+
+      function updateCSVPreview() {
+        const header = 'LOB,ITEM RECEIPT PO NUMBER,SKU,PRODUCTION LOT,PRODUCT ID TAG,QUANTITY,ITEM RECEIPT SECOND LOT,LOCATION,WAREHOUSE';
+        const rows = entries.map(e => 
+          `JA Solar - Expeditors,,${e.sku},${e.lot},${e.productIdTag},${e.quantity},${e.secondLot},${e.location},${e.warehouse}`
+        );
+        document.getElementById('csvPreview').value = [header, ...rows].join('\n');
+      }
+
+      function downloadCSV() {
+        const date = new Date();
+        const filename = `JA FINISHED GOODS IB ${date.toLocaleDateString('en-US', {
+          month: '2-digit', day: '2-digit', year: '2-digit'
+        }).replaceAll('/', '-')}.csv`;
+
+        const csvContent = document.getElementById('csvPreview').value;
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      function resetForm() {
+        document.getElementById('sku').value = '';
+        document.getElementById('lot').value = '';
+        document.getElementById('productIdTag').value = '';
+        document.getElementById('quantity').value = '1';
+        document.getElementById('secondLot').value = '';
+        document.getElementById('location').value = '';
+        document.getElementById('warehouse').value = 'GLENDALE';
+      }
+
+      function renderEntryTable() {
+        const tbody = document.querySelector("#entryTable tbody");
+        tbody.innerHTML = '';
+        entries.forEach((e, i) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${e.sku}</td>
+            <td>${e.lot}</td>
+            <td>${e.productIdTag}</td>
+            <td>${e.quantity}</td>
+            <td>${e.secondLot}</td>
+            <td>${e.location}</td>
+            <td>${e.warehouse}</td>
+            <td>
+              <button onclick="editEntry(${i})">Edit</button>
+              <button onclick="deleteEntry(${i})">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+
+      function editEntry(index) {
+        const e = entries[index];
+        document.getElementById('sku').value = e.sku;
+        document.getElementById('lot').value = e.lot;
+        document.getElementById('productIdTag').value = e.productIdTag;
+        document.getElementById('quantity').value = e.quantity;
+        document.getElementById('secondLot').value = e.secondLot;
+        document.getElementById('location').value = e.location;
+        document.getElementById('warehouse').value = e.warehouse;
+        entries.splice(index, 1);
+        renderEntryTable();
+        updateCSVPreview();
+      }
+
+      function deleteEntry(index) {
+        entries.splice(index, 1);
+        renderEntryTable();
+        updateCSVPreview();
+      }
+    </script>
+
     let currentScanTarget = null;
 
     function showToast(msg) {
