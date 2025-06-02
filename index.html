@@ -104,7 +104,7 @@
         },
       }, err => {
         if (err) return console.error(err);
-        Quagga.start();
+        Quagga.start(); Quagga.initialized = true;
       });
 
       if (window._quaggaListenerSet !== true) {
