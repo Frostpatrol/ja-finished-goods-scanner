@@ -40,13 +40,11 @@
   <h1>JA Finished Goods Inventory</h1>
 
   <p><strong>Scan Step:</strong> <span id="scanStepLabel">SKU</span></p>
-    <button onclick="setScanStep(0)">Scan SKU</button>
-    <button onclick="setScanStep(1)">Scan Lot</button>
-    <button onclick="setScanStep(2)">Scan Product ID Tag</button>
+    <button onclick="setScanStep(0)">🔍 Scan SKU</button>
+    <button onclick="setScanStep(1)">🔍 Scan Lot</button>
+    <button onclick="setScanStep(2)">🔍 Scan Product ID Tag</button>
   <div id="scanner"></div>
-  <button onclick="startScanner()">Start Scanning</button>
-  <button onclick="stopScanner()">Stop Scanning</button>
-
+  
   <label><input type="checkbox" id="keepSKU" /> Keep same SKU for next entry</label>
   <label><input type="checkbox" id="keepSecondLot" /> Keep same ITEM RECEIPT SECOND LOT</label>
 
