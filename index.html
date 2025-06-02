@@ -40,9 +40,6 @@
   <h1>JA Finished Goods Inventory</h1>
 
   <p><strong>Scan Step:</strong> <span id="scanStepLabel">SKU</span></p>
-    <button onclick="setScanStep(0)">🔍 Scan SKU</button>
-    <button onclick="setScanStep(1)">🔍 Scan Lot</button>
-    <button onclick="setScanStep(2)">🔍 Scan Product ID Tag</button>
   <div id="scanner"></div>
   
   <label><input type="checkbox" id="keepSKU" /> Keep same SKU for next entry</label>
@@ -107,13 +104,19 @@
         Quagga.start();
       });
 
+      if (window._quaggaListenerSet !== true) {
       Quagga.onDetected(result => {
         const code = result.codeResult.code;
         const field = scanFields[scanStep];
         document.getElementById(field).value = code;
         showToast(`Scanned: ${field.toUpperCase()}`);
         if (scanStep === scanFields.length - 1) {
-          stopScanner();
+          if (scanStep === scanFields.length - 1) {
+            stopScanner();
+        } else {
+            scanStep++;
+            document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
+        }
         } else {
           scanStep++;
           document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
