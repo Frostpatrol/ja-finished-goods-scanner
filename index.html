@@ -1,93 +1,82 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JA Finished Goods Scanner</title>
   <script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 1rem; }
+    body {
+      font-family: sans-serif;
+      background-color: #121212;
+      color: #f0f0f0;
+      padding: 1rem;
+      overflow-x: hidden;
+      max-width: 100vw;
+    }
+    input, select, button, textarea {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      background: #222;
+      color: #fff;
+      border: 1px solid #444;
+    }
     label { display: block; margin-top: 1rem; }
-    input, select { width: 100%; padding: 0.5rem; }
-    button { margin-top: 1rem; padding: 0.75rem; width: 100%; font-weight: bold; }
-    #scanner { width: 100%; max-height: 160px; margin: 0.5rem 0; border: 2px solid #555; border-radius: 6px; position: relative; }
-    textarea { width: 100%; height: 100px; margin-top: 1rem; }
-  
-  input.flash {
-    border: 2px solid lime !important;
-    box-shadow: 0 0 6px lime;
-  }
-
-
-  html, body {
-    overflow-x: hidden;
-    max-width: 100vw;
-  }
-
-</style>
-
-<style>
-  body.dark { background-color: #121212; color: #f0f0f0; }
-  input, select, button, textarea { background-color: #222; color: #fff; border: 1px solid #444; }
-  .toast {
-    visibility: hidden;
-    min-width: 250px;
-    background-color: #333;
-    color: #fff;
-    text-align: center;
-    border-radius: 8px;
-    padding: 1rem;
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 9999;
-    opacity: 0;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-  }
-  .toast.show {
-    visibility: visible;
-    opacity: 1;
-  }
-
-  input.flash {
-    border: 2px solid lime !important;
-    box-shadow: 0 0 6px lime;
-  }
-
-
-  html, body {
-    overflow-x: hidden;
-    max-width: 100vw;
-  }
-
-</style>
-<div id="toast" class="toast">Scanned!</div>
-<script>
-  function showToast(msg) {
-    const toast = document.getElementById("toast");
-    toast.textContent = msg;
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2000);
-  }
-</script>
-
+    button.toggle-btn {
+      width: auto;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+      margin-right: 0.5rem;
+    }
+    #scanner {
+      width: 100%;
+      max-height: 100px;
+      border: 2px solid #555;
+      border-radius: 6px;
+      margin: 1rem 0;
+      display: none;
+    }
+    .toast {
+      visibility: hidden;
+      min-width: 250px;
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      border-radius: 8px;
+      padding: 1rem;
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .toast.show {
+      visibility: visible;
+      opacity: 1;
+    }
+    input.flash {
+      border: 2px solid lime !important;
+      box-shadow: 0 0 6px lime;
+    }
+  </style>
 </head>
 <body>
   <h1>JA Finished Goods Inventory</h1>
 
   <div>
-    <p><strong>Scan Step:</strong> <span id="scanStepLabel">SKU</span></p>
-    <div id="scanner"></div>
-    
-    <div style="display: flex; gap: 0.5rem;">
-      <button style='flex: 1; font-size: 0.9rem;' onclick="startScanner()">Start</button>
-      <button style='flex: 1; font-size: 0.9rem;' onclick="stopScanner()">Stop</button>
+    <div>
+      <button class="toggle-btn" onclick="startScanner('sku')">Scan SKU</button>
+      <button class="toggle-btn" onclick="startScanner('lot')">Scan PRODUCTION LOT</button>
+      <button class="toggle-btn" onclick="startScanner('productIdTag')">Scan PRODUCT ID TAG</button>
+      <button class="toggle-btn" onclick="stopScanner()">Stop Scanner</button>
     </div>
-    
 
-    <label><input type="checkbox" id="keepSKU" /> Keep same SKU for next entry</label>
-    <label><input type="checkbox" id="keepSecondLot" /> Keep same ITEM RECEIPT SECOND LOT</label>
+    <div id="scanner"></div>
 
     <label>SKU:<input id="sku" /></label>
     <label>Production Lot:<input id="lot" /></label>
@@ -97,24 +86,28 @@
     <label>Location:<input id="location" oninput="formatLocation(this)" /></label>
     <label>Warehouse:<input id="warehouse" value="GLENDALE" /></label>
 
-    <button onclick="addEntry()">Add Entry</button>
-    <button onclick="downloadCSV()">Download CSV</button>
+    <div class="toast" id="toast">Scanned!</div>
   </div>
 
-  <textarea id="csvPreview" readonly placeholder="CSV preview will appear here..."></textarea>
-
   <script>
-    let entries = [];
-    let scanStep = 0;
-    const scanFields = ['sku', 'lot', 'productIdTag'];
+    let currentScanTarget = null;
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2000);
+    }
 
     function formatLocation(el) {
       const val = el.value.replace(/^JA-/, '');
       el.value = 'JA-' + val;
     }
 
-    function startScanner() {
-      document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
+    function startScanner(field) {
+      currentScanTarget = field;
+      document.getElementById('scanner').style.display = 'block';
+
       Quagga.init({
         inputStream: {
           name: 'Live',
@@ -129,86 +122,26 @@
         Quagga.start();
       });
 
-      
-      document.activeElement.blur(); // prevent keyboard locking
-      Quagga.onDetected(result => {
-    
-        const code = result.codeResult.code;
-        const field = scanFields[scanStep];
-        
-        const el = document.getElementById(field);
-        el.value = code;
-        el.classList.add('flash');
-        setTimeout(() => el.classList.remove('flash'), 700);
-        showToast(`Scanned: ${field.toUpperCase()}`);
-    
-        if (scanStep === scanFields.length - 1) {
-          stopScanner();
-      } else {
-          scanStep++;
-          document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
-      }
-        // handled by logic above
-        document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
-      });
+      Quagga.onDetected(onDetectedHandler);
+    }
+
+    function onDetectedHandler(result) {
+      const code = result.codeResult.code;
+      if (!currentScanTarget) return;
+
+      const el = document.getElementById(currentScanTarget);
+      el.value = code;
+      el.classList.add("flash");
+      setTimeout(() => el.classList.remove("flash"), 700);
+      showToast(`Scanned: ${currentScanTarget.toUpperCase()}`);
+      stopScanner();
     }
 
     function stopScanner() {
       Quagga.stop();
-    }
-
-    function addEntry() {
-      const row = {
-        sku: document.getElementById('sku').value,
-        lot: document.getElementById('lot').value,
-        productIdTag: document.getElementById('productIdTag').value,
-        quantity: document.getElementById('quantity').value,
-        secondLot: document.getElementById('secondLot').value,
-        location: document.getElementById('location').value,
-        warehouse: document.getElementById('warehouse').value,
-      };
-      entries.push(row);
-      updateCSVPreview();
-
-      const keepSKU = document.getElementById('keepSKU').checked;
-      const keepSecondLot = document.getElementById('keepSecondLot').checked;
-
-      if (!keepSKU) document.getElementById('sku').value = '';
-      document.getElementById('lot').value = '';
-      document.getElementById('productIdTag').value = '';
-      document.getElementById('quantity').value = '1';
-      if (!keepSecondLot) document.getElementById('secondLot').value = '';
-      document.getElementById('location').value = '';
-      scanStep = 0;
-      scanStep = 0;
-      document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
-
-      alert('Entry added!');
-    }
-
-    function updateCSVPreview() {
-      const header = 'LOB,ITEM RECEIPT PO NUMBER,SKU,PRODUCTION LOT,PRODUCT ID TAG,QUANTITY,ITEM RECEIPT SECOND LOT,LOCATION,WAREHOUSE';
-      const rows = entries.map(e =>
-        `JA Solar - Expeditors,,${e.sku},${e.lot},${e.productIdTag},${e.quantity},${e.secondLot},${e.location},${e.warehouse}`
-      );
-      document.getElementById('csvPreview').value = [header, ...rows].join('\n');
-    }
-
-    function downloadCSV() {
-      const date = new Date();
-      const filename = `JA FINISHED GOODS IB ${date.toLocaleDateString('en-US', {
-        month: '2-digit', day: '2-digit', year: '2-digit'
-      }).replaceAll('/', '-')}.csv`;
-
-      const csvContent = document.getElementById('csvPreview').value;
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      Quagga.offDetected(onDetectedHandler);
+      document.getElementById('scanner').style.display = 'none';
+      currentScanTarget = null;
     }
   </script>
 </body>
