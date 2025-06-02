@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,3 +6,230 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JA Finished Goods Scanner</title>
   <script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.js"></script>
+  <style>
+    body.dark { background-color: #121212; color: #f0f0f0; }
+    input, select, button, textarea { background-color: #222; color: #fff; border: 1px solid #444; }
+    label { display: block; margin-top: 1rem; }
+    input, select { width: 100%; padding: 0.5rem; }
+    button { margin-top: 1rem; padding: 0.75rem; width: 100%; font-weight: bold; }
+    #scanner { width: 100%; max-height: 200px; margin: 1rem 0; border: 1px solid #ccc; position: relative; }
+    textarea { width: 100%; height: 100px; margin-top: 1rem; }
+    .toast {
+      visibility: hidden;
+      min-width: 250px;
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      border-radius: 8px;
+      padding: 1rem;
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .toast.show {
+      visibility: visible;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="dark">
+  <h1>JA Finished Goods Inventory</h1>
+
+  <p><strong>Scan Step:</strong> <span id="scanStepLabel">SKU</span></p>
+  <div id="scanner"></div>
+  <button onclick="startScanner()">Start Scanning</button>
+  <button onclick="stopScanner()">Stop Scanning</button>
+
+  <label><input type="checkbox" id="keepSKU" /> Keep same SKU for next entry</label>
+  <label><input type="checkbox" id="keepSecondLot" /> Keep same ITEM RECEIPT SECOND LOT</label>
+
+  <label>SKU:<input id="sku" /></label>
+  <label>Production Lot:<input id="lot" /></label>
+  <label>Product ID Tag:<input id="productIdTag" /></label>
+  <label>Quantity:<input id="quantity" value="1" type="number" /></label>
+  <label>ITEM RECEIPT SECOND LOT:<input id="secondLot" /></label>
+  <label>Location:<input id="location" oninput="formatLocation(this)" /></label>
+  <label>Warehouse:<input id="warehouse" value="GLENDALE" /></label>
+
+  <button onclick="addEntry()">Add Entry</button>
+  <button onclick="downloadCSV()">Download CSV</button>
+  <button onclick="resetForm()">Reset Form</button>
+
+  <h2>Entry Log</h2>
+  <table border="1" width="100%" style="margin-top:1rem;" id="entryTable">
+    <thead>
+      <tr>
+        <th>#</th><th>SKU</th><th>Lot</th><th>Product ID Tag</th><th>Qty</th><th>2nd Lot</th><th>Location</th><th>Warehouse</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <textarea id="csvPreview" readonly placeholder="CSV preview will appear here..."></textarea>
+
+  <div id="toast" class="toast">Scanned!</div>
+
+  <script>
+    let entries = [];
+    let scanStep = 0;
+    const scanFields = ['sku', 'lot', 'productIdTag'];
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2000);
+    }
+
+    function formatLocation(el) {
+      const val = el.value.replace(/^JA-/, '');
+      el.value = 'JA-' + val;
+    }
+
+    function startScanner() {
+      document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
+      Quagga.init({
+        inputStream: {
+          name: 'Live',
+          type: 'LiveStream',
+          target: document.querySelector('#scanner'),
+        },
+        decoder: {
+          readers: ['code_128_reader', 'ean_reader', 'ean_8_reader'],
+        },
+      }, err => {
+        if (err) return console.error(err);
+        Quagga.start();
+      });
+
+      Quagga.onDetected(result => {
+        const code = result.codeResult.code;
+        const field = scanFields[scanStep];
+        document.getElementById(field).value = code;
+        showToast(`Scanned: ${field.toUpperCase()}`);
+        if (scanStep === scanFields.length - 1) {
+          stopScanner();
+        } else {
+          scanStep++;
+          document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
+        }
+      });
+    }
+
+    function stopScanner() {
+      Quagga.stop();
+    }
+
+    function addEntry() {
+      const row = {
+        sku: document.getElementById('sku').value,
+        lot: document.getElementById('lot').value,
+        productIdTag: document.getElementById('productIdTag').value,
+        quantity: document.getElementById('quantity').value,
+        secondLot: document.getElementById('secondLot').value,
+        location: document.getElementById('location').value,
+        warehouse: document.getElementById('warehouse').value,
+      };
+      entries.push(row);
+      updateCSVPreview();
+      renderEntryTable();
+
+      const keepSKU = document.getElementById('keepSKU').checked;
+      const keepSecondLot = document.getElementById('keepSecondLot').checked;
+
+      if (!keepSKU) document.getElementById('sku').value = '';
+      document.getElementById('lot').value = '';
+      document.getElementById('productIdTag').value = '';
+      document.getElementById('quantity').value = '1';
+      if (!keepSecondLot) document.getElementById('secondLot').value = '';
+      document.getElementById('location').value = '';
+      scanStep = 0;
+      document.getElementById('scanStepLabel').innerText = scanFields[0].toUpperCase();
+    }
+
+    function renderEntryTable() {
+      const tbody = document.querySelector("#entryTable tbody");
+      tbody.innerHTML = '';
+      entries.forEach((e, i) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${i + 1}</td>
+          <td>${e.sku}</td>
+          <td>${e.lot}</td>
+          <td>${e.productIdTag}</td>
+          <td>${e.quantity}</td>
+          <td>${e.secondLot}</td>
+          <td>${e.location}</td>
+          <td>${e.warehouse}</td>
+          <td>
+            <button onclick="editEntry(${i})">Edit</button>
+            <button onclick="deleteEntry(${i})">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function editEntry(index) {
+      const e = entries[index];
+      document.getElementById('sku').value = e.sku;
+      document.getElementById('lot').value = e.lot;
+      document.getElementById('productIdTag').value = e.productIdTag;
+      document.getElementById('quantity').value = e.quantity;
+      document.getElementById('secondLot').value = e.secondLot;
+      document.getElementById('location').value = e.location;
+      document.getElementById('warehouse').value = e.warehouse;
+      entries.splice(index, 1);
+      renderEntryTable();
+      updateCSVPreview();
+    }
+
+    function deleteEntry(index) {
+      entries.splice(index, 1);
+      renderEntryTable();
+      updateCSVPreview();
+    }
+
+    function resetForm() {
+      document.getElementById('sku').value = '';
+      document.getElementById('lot').value = '';
+      document.getElementById('productIdTag').value = '';
+      document.getElementById('quantity').value = '1';
+      document.getElementById('secondLot').value = '';
+      document.getElementById('location').value = '';
+      document.getElementById('warehouse').value = 'GLENDALE';
+      scanStep = 0;
+      document.getElementById('scanStepLabel').innerText = scanFields[0].toUpperCase();
+    }
+
+    function updateCSVPreview() {
+      const header = 'LOB,ITEM RECEIPT PO NUMBER,SKU,PRODUCTION LOT,PRODUCT ID TAG,QUANTITY,ITEM RECEIPT SECOND LOT,LOCATION,WAREHOUSE';
+      const rows = entries.map(e =>
+        `JA Solar - Expeditors,,${e.sku},${e.lot},${e.productIdTag},${e.quantity},${e.secondLot},${e.location},${e.warehouse}`
+      );
+      document.getElementById('csvPreview').value = [header, ...rows].join('\n');
+    }
+
+    function downloadCSV() {
+      const date = new Date();
+      const filename = `JA FINISHED GOODS IB ${date.toLocaleDateString('en-US', {
+        month: '2-digit', day: '2-digit', year: '2-digit'
+      }).replaceAll('/', '-')}.csv`;
+
+      const csvContent = document.getElementById('csvPreview').value;
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
