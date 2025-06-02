@@ -10,9 +10,68 @@
     label { display: block; margin-top: 1rem; }
     input, select { width: 100%; padding: 0.5rem; }
     button { margin-top: 1rem; padding: 0.75rem; width: 100%; font-weight: bold; }
-    #scanner { width: 100%; max-height: 200px; margin: 1rem 0; border: 1px solid #ccc; position: relative; }
+    #scanner { width: 100%; max-height: 160px; margin: 0.5rem 0; border: 2px solid #555; border-radius: 6px; position: relative; }
     textarea { width: 100%; height: 100px; margin-top: 1rem; }
-  </style>
+  
+  input.flash {
+    border: 2px solid lime !important;
+    box-shadow: 0 0 6px lime;
+  }
+
+
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+</style>
+
+<style>
+  body.dark { background-color: #121212; color: #f0f0f0; }
+  input, select, button, textarea { background-color: #222; color: #fff; border: 1px solid #444; }
+  .toast {
+    visibility: hidden;
+    min-width: 250px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 8px;
+    padding: 1rem;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+  .toast.show {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  input.flash {
+    border: 2px solid lime !important;
+    box-shadow: 0 0 6px lime;
+  }
+
+
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+</style>
+<div id="toast" class="toast">Scanned!</div>
+<script>
+  function showToast(msg) {
+    const toast = document.getElementById("toast");
+    toast.textContent = msg;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2000);
+  }
+</script>
+
 </head>
 <body>
   <h1>JA Finished Goods Inventory</h1>
@@ -20,8 +79,12 @@
   <div>
     <p><strong>Scan Step:</strong> <span id="scanStepLabel">SKU</span></p>
     <div id="scanner"></div>
-    <button onclick="startScanner()">Start Scanning</button>
-    <button onclick="stopScanner()">Stop Scanning</button>
+    
+    <div style="display: flex; gap: 0.5rem;">
+      <button style='flex: 1; font-size: 0.9rem;' onclick="startScanner()">Start</button>
+      <button style='flex: 1; font-size: 0.9rem;' onclick="stopScanner()">Stop</button>
+    </div>
+    
 
     <label><input type="checkbox" id="keepSKU" /> Keep same SKU for next entry</label>
     <label><input type="checkbox" id="keepSecondLot" /> Keep same ITEM RECEIPT SECOND LOT</label>
@@ -66,10 +129,19 @@
         Quagga.start();
       });
 
+      
+      document.activeElement.blur(); // prevent keyboard locking
       Quagga.onDetected(result => {
+    
         const code = result.codeResult.code;
         const field = scanFields[scanStep];
-        document.getElementById(field).value = code;
+        
+        const el = document.getElementById(field);
+        el.value = code;
+        el.classList.add('flash');
+        setTimeout(() => el.classList.remove('flash'), 700);
+        showToast(`Scanned: ${field.toUpperCase()}`);
+    
         if (scanStep === scanFields.length - 1) {
           stopScanner();
       } else {
@@ -108,7 +180,8 @@
       if (!keepSecondLot) document.getElementById('secondLot').value = '';
       document.getElementById('location').value = '';
       scanStep = 0;
-      document.getElementById('scanStepLabel').innerText = scanFields[0].toUpperCase();
+      scanStep = 0;
+      document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
 
       alert('Entry added!');
     }
