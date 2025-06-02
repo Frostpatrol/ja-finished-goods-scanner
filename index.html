@@ -18,35 +18,51 @@
   <h1>JA Finished Goods Inventory</h1>
 
   <div>
-    <label>Scan Field:
-      <select id="scanTarget">
-        <option value="itemReceipt">Item Receipt PO Number</option>
-        <option value="sku">SKU</option>
-        <option value="lot">Production Lot</option>
-      </select>
-    </label>
-
+    <p><strong>Scan Step:</strong> <span id="scanStepLabel">SKU</span></p>
     <div id="scanner"></div>
     <button onclick="startScanner()">Start Scanning</button>
     <button onclick="stopScanner()">Stop Scanning</button>
 
-    <label>Item Receipt PO Number:<input id="itemReceipt" /></label>
+    <label><input type="checkbox" id="keepSKU" /> Keep same SKU for next entry</label>
+    <label><input type="checkbox" id="keepSecondLot" /> Keep same ITEM RECEIPT SECOND LOT</label>
+
     <label>SKU:<input id="sku" /></label>
     <label>Production Lot:<input id="lot" /></label>
+    <label>Product ID Tag:<input id="productIdTag" /></label>
     <label>Quantity:<input id="quantity" value="1" type="number" /></label>
-    <label>Location:<input id="location" /></label>
+    <label>ITEM RECEIPT SECOND LOT:<input id="secondLot" /></label>
+    <label>Location:<input id="location" oninput="formatLocation(this)" /></label>
     <label>Warehouse:<input id="warehouse" value="GLENDALE" /></label>
 
     <button onclick="addEntry()">Add Entry</button>
     <button onclick="downloadCSV()">Download CSV</button>
   </div>
 
+  
+  <h2>Entry Log</h2>
+  <table border="1" width="100%" style="margin-top:1rem;" id="entryTable">
+    <thead>
+      <tr>
+        <th>#</th><th>SKU</th><th>Lot</th><th>Product ID Tag</th><th>Qty</th><th>2nd Lot</th><th>Location</th><th>Warehouse</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
   <textarea id="csvPreview" readonly placeholder="CSV preview will appear here..."></textarea>
+
 
   <script>
     let entries = [];
+    let scanStep = 0;
+    const scanFields = ['sku', 'lot', 'productIdTag'];
+
+    function formatLocation(el) {
+      const val = el.value.replace(/^JA-/, '');
+      el.value = 'JA-' + val;
+    }
 
     function startScanner() {
+      document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
       Quagga.init({
         inputStream: {
           name: 'Live',
@@ -63,9 +79,11 @@
 
       Quagga.onDetected(result => {
         const code = result.codeResult.code;
-        const field = document.getElementById('scanTarget').value;
+        const field = scanFields[scanStep];
         document.getElementById(field).value = code;
         stopScanner();
+        scanStep = (scanStep + 1) % scanFields.length;
+        document.getElementById('scanStepLabel').innerText = scanFields[scanStep].toUpperCase();
       });
     }
 
@@ -75,21 +93,37 @@
 
     function addEntry() {
       const row = {
-        itemReceipt: document.getElementById('itemReceipt').value,
         sku: document.getElementById('sku').value,
         lot: document.getElementById('lot').value,
+        productIdTag: document.getElementById('productIdTag').value,
         quantity: document.getElementById('quantity').value,
+        secondLot: document.getElementById('secondLot').value,
         location: document.getElementById('location').value,
         warehouse: document.getElementById('warehouse').value,
       };
       entries.push(row);
       updateCSVPreview();
-      alert('Entry added!');
+
+      const keepSKU = document.getElementById('keepSKU').checked;
+      const keepSecondLot = document.getElementById('keepSecondLot').checked;
+
+      if (!keepSKU) document.getElementById('sku').value = '';
+      document.getElementById('lot').value = '';
+      document.getElementById('productIdTag').value = '';
+      document.getElementById('quantity').value = '1';
+      if (!keepSecondLot) document.getElementById('secondLot').value = '';
+      document.getElementById('location').value = '';
+      scanStep = 0;
+      document.getElementById('scanStepLabel').innerText = scanFields[0].toUpperCase();
+
+      renderEntryTable(); alert('Entry added!');
     }
 
     function updateCSVPreview() {
-      const header = 'ITEM RECEIPT PO NUMBER,SKU,PRODUCTION LOT,QUANTITY,LOCATION,WAREHOUSE';
-      const rows = entries.map(e => `${e.itemReceipt},${e.sku},${e.lot},${e.quantity},${e.location},${e.warehouse}`);
+      const header = 'LOB,ITEM RECEIPT PO NUMBER,SKU,PRODUCTION LOT,PRODUCT ID TAG,QUANTITY,ITEM RECEIPT SECOND LOT,LOCATION,WAREHOUSE';
+      const rows = entries.map(e =>
+        `JA Solar - Expeditors,,${e.sku},${e.lot},${e.productIdTag},${e.quantity},${e.secondLot},${e.location},${e.warehouse}`
+      );
       document.getElementById('csvPreview').value = [header, ...rows].join('\n');
     }
 
@@ -112,3 +146,47 @@
   </script>
 </body>
 </html>
+<script>
+  function renderEntryTable() {
+    const tbody = document.querySelector("#entryTable tbody");
+    tbody.innerHTML = '';
+    entries.forEach((e, i) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${e.sku}</td>
+        <td>${e.lot}</td>
+        <td>${e.productIdTag}</td>
+        <td>${e.quantity}</td>
+        <td>${e.secondLot}</td>
+        <td>${e.location}</td>
+        <td>${e.warehouse}</td>
+        <td>
+          <button onclick="editEntry(${i})">Edit</button>
+          <button onclick="deleteEntry(${i})">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+
+  function editEntry(index) {
+    const e = entries[index];
+    document.getElementById('sku').value = e.sku;
+    document.getElementById('lot').value = e.lot;
+    document.getElementById('productIdTag').value = e.productIdTag;
+    document.getElementById('quantity').value = e.quantity;
+    document.getElementById('secondLot').value = e.secondLot;
+    document.getElementById('location').value = e.location;
+    document.getElementById('warehouse').value = e.warehouse;
+    entries.splice(index, 1);
+    renderEntryTable();
+    updateCSVPreview();
+  }
+
+  function deleteEntry(index) {
+    entries.splice(index, 1);
+    renderEntryTable();
+    updateCSVPreview();
+  }
+</script>
