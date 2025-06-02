@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JA Finished Goods Scanner</title>
+  <script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    label { display: block; margin-top: 1rem; }
+    input, select { width: 100%; padding: 0.5rem; }
+    button { margin-top: 1rem; padding: 0.75rem; width: 100%; font-weight: bold; }
+    #scanner { width: 100%; height: 240px; margin: 1rem 0; }
+    textarea { width: 100%; height: 100px; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>JA Finished Goods Inventory</h1>
+
+  <div>
+    <label>Scan Field:
+      <select id="scanTarget">
+        <option value="itemReceipt">Item Receipt PO Number</option>
+        <option value="sku">SKU</option>
+        <option value="lot">Production Lot</option>
+      </select>
+    </label>
+
+    <div id="scanner"></div>
+    <button onclick="startScanner()">Start Scanning</button>
+    <button onclick="stopScanner()">Stop Scanning</button>
+
+    <label>Item Receipt PO Number:<input id="itemReceipt" /></label>
+    <label>SKU:<input id="sku" /></label>
+    <label>Production Lot:<input id="lot" /></label>
+    <label>Quantity:<input id="quantity" value="1" type="number" /></label>
+    <label>Location:<input id="location" /></label>
+    <label>Warehouse:<input id="warehouse" value="GLENDALE" /></label>
+
+    <button onclick="addEntry()">Add Entry</button>
+    <button onclick="downloadCSV()">Download CSV</button>
+  </div>
+
+  <textarea id="csvPreview" readonly placeholder="CSV preview will appear here..."></textarea>
+
+  <script>
+    let entries = [];
+
+    function startScanner() {
+      Quagga.init({
+        inputStream: {
+          name: 'Live',
+          type: 'LiveStream',
+          target: document.querySelector('#scanner'),
+        },
+        decoder: {
+          readers: ['code_128_reader', 'ean_reader', 'ean_8_reader'],
+        },
+      }, err => {
+        if (err) return console.error(err);
+        Quagga.start();
+      });
+
+      Quagga.onDetected(result => {
+        const code = result.codeResult.code;
+        const field = document.getElementById('scanTarget').value;
+        document.getElementById(field).value = code;
+        stopScanner();
+      });
+    }
+
+    function stopScanner() {
+      Quagga.stop();
+    }
+
+    function addEntry() {
+      const row = {
+        itemReceipt: document.getElementById('itemReceipt').value,
+        sku: document.getElementById('sku').value,
+        lot: document.getElementById('lot').value,
+        quantity: document.getElementById('quantity').value,
+        location: document.getElementById('location').value,
+        warehouse: document.getElementById('warehouse').value,
+      };
+      entries.push(row);
+      updateCSVPreview();
+      alert('Entry added!');
+    }
+
+    function updateCSVPreview() {
+      const header = 'ITEM RECEIPT PO NUMBER,SKU,PRODUCTION LOT,QUANTITY,LOCATION,WAREHOUSE';
+      const rows = entries.map(e => `${e.itemReceipt},${e.sku},${e.lot},${e.quantity},${e.location},${e.warehouse}`);
+      document.getElementById('csvPreview').value = [header, ...rows].join('\n');
+    }
+
+    function downloadCSV() {
+      const date = new Date();
+      const filename = `JA FINISHED GOODS IB ${date.toLocaleDateString('en-US', {
+        month: '2-digit', day: '2-digit', year: '2-digit'
+      }).replaceAll('/', '-')}.csv`;
+
+      const csvContent = document.getElementById('csvPreview').value;
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
