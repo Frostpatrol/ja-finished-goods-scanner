@@ -5,7 +5,50 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JA Finished Goods Scanner</title>
-  <script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.js"></script>
+  <script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.js">
+let currentScanTarget = null;
+
+function startScanner(field) {
+  currentScanTarget = field;
+  document.getElementById('scanner').style.display = 'block';
+
+  Quagga.init({
+    inputStream: {
+      name: 'Live',
+      type: 'LiveStream',
+      target: document.querySelector('#scanner'),
+    },
+    decoder: {
+      readers: ['code_128_reader', 'ean_reader', 'ean_8_reader'],
+    },
+  }, err => {
+    if (err) return console.error(err);
+    Quagga.start();
+  });
+
+  Quagga.onDetected(onDetectedHandler);
+}
+
+function stopScanner() {
+  Quagga.stop();
+  Quagga.offDetected(onDetectedHandler);
+  document.getElementById('scanner').style.display = 'none';
+  currentScanTarget = null;
+}
+
+function onDetectedHandler(result) {
+  const code = result.codeResult.code;
+  if (!currentScanTarget) return;
+
+  const el = document.getElementById(currentScanTarget);
+  el.value = code;
+  el.classList.add("flash");
+  setTimeout(() => el.classList.remove("flash"), 700);
+  showToast(`Scanned: ${currentScanTarget.toUpperCase()}`);
+  stopScanner();
+}
+</script>
+
   <style>
     body {
       font-family: sans-serif;
@@ -201,7 +244,50 @@
         renderEntryTable();
         updateCSVPreview();
       }
-    </script>
+    
+let currentScanTarget = null;
+
+function startScanner(field) {
+  currentScanTarget = field;
+  document.getElementById('scanner').style.display = 'block';
+
+  Quagga.init({
+    inputStream: {
+      name: 'Live',
+      type: 'LiveStream',
+      target: document.querySelector('#scanner'),
+    },
+    decoder: {
+      readers: ['code_128_reader', 'ean_reader', 'ean_8_reader'],
+    },
+  }, err => {
+    if (err) return console.error(err);
+    Quagga.start();
+  });
+
+  Quagga.onDetected(onDetectedHandler);
+}
+
+function stopScanner() {
+  Quagga.stop();
+  Quagga.offDetected(onDetectedHandler);
+  document.getElementById('scanner').style.display = 'none';
+  currentScanTarget = null;
+}
+
+function onDetectedHandler(result) {
+  const code = result.codeResult.code;
+  if (!currentScanTarget) return;
+
+  const el = document.getElementById(currentScanTarget);
+  el.value = code;
+  el.classList.add("flash");
+  setTimeout(() => el.classList.remove("flash"), 700);
+  showToast(`Scanned: ${currentScanTarget.toUpperCase()}`);
+  stopScanner();
+}
+</script>
+
 
     let currentScanTarget = null;
 
@@ -256,6 +342,49 @@
       document.getElementById('scanner').style.display = 'none';
       currentScanTarget = null;
     }
-  </script>
+  
+let currentScanTarget = null;
+
+function startScanner(field) {
+  currentScanTarget = field;
+  document.getElementById('scanner').style.display = 'block';
+
+  Quagga.init({
+    inputStream: {
+      name: 'Live',
+      type: 'LiveStream',
+      target: document.querySelector('#scanner'),
+    },
+    decoder: {
+      readers: ['code_128_reader', 'ean_reader', 'ean_8_reader'],
+    },
+  }, err => {
+    if (err) return console.error(err);
+    Quagga.start();
+  });
+
+  Quagga.onDetected(onDetectedHandler);
+}
+
+function stopScanner() {
+  Quagga.stop();
+  Quagga.offDetected(onDetectedHandler);
+  document.getElementById('scanner').style.display = 'none';
+  currentScanTarget = null;
+}
+
+function onDetectedHandler(result) {
+  const code = result.codeResult.code;
+  if (!currentScanTarget) return;
+
+  const el = document.getElementById(currentScanTarget);
+  el.value = code;
+  el.classList.add("flash");
+  setTimeout(() => el.classList.remove("flash"), 700);
+  showToast(`Scanned: ${currentScanTarget.toUpperCase()}`);
+  stopScanner();
+}
+</script>
+
 </body>
 </html>
